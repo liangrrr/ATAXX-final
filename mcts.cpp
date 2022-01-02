@@ -22,7 +22,7 @@ int mycolor;
 inline void grid_set(grid & g, int x, int y, int color);
 inline bool grid_delete (grid & g, int x, int y, int color);
 inline int grid_get (const grid & g, int x, int y);
-
+inline void proc_step_grid(grid & g, const STEP & st);
 int delta[24][2] = { { 1,1 },{ 0,1 },{ -1,1 },{ -1,0 },
 { -1,-1 },{ 0,-1 },{ 1,-1 },{ 1,0 },
 { 2,0 },{ 2,1 },{ 2,2 },{ 1,2 },
@@ -49,33 +49,36 @@ inline int set_judge_valid(STEP & st, const grid & g, const int & color)
 	return GETTYPE(st);
 }
 
-struct cmp
-{
-	bool operator ()(node *lhs, node *rhs)
-	{
-		double lu = lhs->uct(), ru = rhs->uct();
-		if(abs(lu-ru)<1e-5)
-		{
-			return lhs-> relscore() < rhs->relscore();
-		}
-		return lu < ru;
-	}
-};
+
+
 
 struct node
 {
 	node *parent=NULL;
 	grid g;int color;
 	STEP comefrom;
+	struct cmp
+	{
+		bool operator ()(node *lhs, node *rhs)
+		{
+			double lu = lhs->uct(), ru = rhs->uct();
+			if(abs(lu-ru)<1e-3)
+			{
+				return lhs-> relscore() < rhs->relscore();
+			}
+			return lu < ru;
+		}
+	};
 	priority_queue <node*, vector<node *>, cmp> child_list;
 	vector <STEP> valid_moves;
 	int visited=0, win=0;
 
 	//node (grid _g, node *p):g(_g), parent(p){}
-	node (node *p, STEP s):g(p->g),color(-p->color),comefrom(s)
+	node (node *p, STEP s):g(p->g),color(-p->color),comefrom(s),parent(p)
 	{
 		proc_step_grid(g,s);
 	}
+	node (grid _g):g(_g),color(mycolor),comefrom(0){}
 
 	inline int relscore() const
 	{
@@ -84,7 +87,7 @@ struct node
 	inline double uct() const
 	{
 		if (visited == 0)return 2147483647;
-		return (double)win/visited + sqrt( 2 * log2(parent->visited) / visited );
+		return (double)(visited - win)/visited + sqrt( 2.0 * log2(parent->visited) / visited );
 	}
 	inline bool fully_expanded()const
 	{
@@ -93,12 +96,12 @@ struct node
 	bool find_valid_moves()
 	{
 		if(empty_spaces(g) == 0)return 0;
-		for(int i=0;i<7;++i)for(int j=0;j<7;++i)
+		for(int i=0;i<7;++i)for(int j=0;j<7;++j)
 		{
-			if(grid_get(g,i,j)!=color)continue;
-			for(int k=0;k<24;++k)
+			if(grid_get(g,i,j)!=0);
+			else for(int k=0;k<24;++k)
 			{
-				STEP st = STEP2I(i,j,i+delta[k][0], j+delta[k][1]);
+				STEP st = STEP2I(i+delta[k][0], j+delta[k][1],i,j);
 				if(set_judge_valid(st,g,color) == 0)continue;
 				valid_moves.push_back(st);
 				if(k<8)break;
@@ -120,6 +123,13 @@ struct node
 		visited++;
 		if(choice->visited)
 		{
+			if(choice -> valid_moves.size() == 0)
+			{
+				choice->visited ++;
+				win++;
+				child_list.push(choice);
+				return color;
+			}
 			int winner = choice->simulate();
 			if(winner == color) win++;
 			child_list.push(choice);
@@ -127,7 +137,10 @@ struct node
 		}
 		if(choice->find_valid_moves() == 0)
 		{
+			#ifndef _BOTZONE_ONLINE
+			#endif
 			win++;
+			choice->visited ++;
 			return color;
 		}
 		else
@@ -142,9 +155,14 @@ struct node
 }
 *MCTSRoot;
 
+
 inline int grid_get (const grid & g, int x, int y)
 {
 	int loc = x*7 + y;
+	#ifndef _BOTZONE_ONLINE
+	if(g.first[loc]&&g.second[loc])
+		cerr<<"grid info error.\n";
+	#endif
 	if(g.first[loc]) return -1;
 	if(g.second[loc]) return 1;
 	return 0;
@@ -213,7 +231,7 @@ inline void proc_step_grid(grid & g, const STEP & st)
 	for(int dir = 0; dir < 8 ; dir ++)
 	{
 		int dx = x1 + delta[dir][0], dy = y1 + delta[dir][1];
-		if(grid_get(g,dx,dy) == -color)
+		if(in_grid(dx,dy) && grid_get(g,dx,dy) == -color)
 		{
 			grid_delete(g,dx,dy,-color);
 			grid_set(g,dx,dy,color);
@@ -278,8 +296,7 @@ int main()
 					cerr<<"First step invalid.\n";
 				proc_step_grid(ng,fs);
 			}
-			MCTSRoot = new node(ng,);
-			MCTSRoot->g = ng;
+			MCTSRoot = new node(ng);
 		}
 		else
 		{
@@ -288,23 +305,56 @@ int main()
 			int y0 = input["y0"].asInt();
 			int x1 = input["x1"].asInt();
 			int y1 = input["y1"].asInt();
-			step oppst = step(x0,y0,x1,y1,-mycolor,-1);
-			auto it = MCTSRoot->mp.find(oppst);
-			if(it != MCTSRoot->mp.end())
-			MCTSRoot = it->second;
-			else
-			// !
-			MCTSRoot = new node();
-			MCTSRoot->g = 
+			STEP opps = STEP2I(x0,y0,x1,y1);
+			grid ng = MCTSRoot->g;
+			set_judge_valid(opps, ng , -mycolor);
+			proc_step_grid(ng,opps);
+			#ifndef _BOTZONE_ONLINE
+			node * oldroot = MCTSRoot;
+			#endif
+			while(!MCTSRoot->child_list.empty())
+			{
+				node * temp = MCTSRoot->child_list.top();
+				if(temp->g == ng)
+				{
+					MCTSRoot = temp;
+					break;
+				}
+				MCTSRoot->child_list.pop();
+			}
+			#ifndef _BOTZONE_ONLINE
+			if(oldroot == MCTSRoot)
+			cerr<<"slow like crawl ?\n";
+			#endif
 		}
-		
+		if(MCTSRoot->visited == 0)
+		{
+			MCTSRoot -> find_valid_moves();
+			#ifndef _BOTZONE_ONLINE
+			if(MCTSRoot->valid_moves.size() == 0)
+				cerr<<"you died.\n";
+			#endif
+			MCTSRoot -> expand();
+		}
 
-		while(1){
-		clock_t tok = clock();
-		if((double)(tok-tik) / CLOCKS_PER_SEC > TIME_LIMIT)break;
+		while(1)
+		{
+			MCTSRoot->simulate();
+			clock_t tok = clock();
+			if((double)(tok-tik) / CLOCKS_PER_SEC > TIME_LIMIT)break;
 		}
-		cout;
-		cout<<"\n>>>BOTZONE_REQUEST_KEEP_RUNNING<<<\n";
+
+		node *bestchild = MCTSRoot->child_list.top();
+		if(bestchild->visited == 0)cerr<<"how can you do this?\n";
+		Json::Value ret;
+		ret["response"]["x0"] = GETX0(bestchild->comefrom);
+		ret["response"]["y0"] = GETY0(bestchild->comefrom);
+		ret["response"]["x1"] = GETX1(bestchild->comefrom);
+		ret["response"]["y1"] = GETY1(bestchild->comefrom);
+		Json::FastWriter writer;
+		cout << writer.write(ret) << endl;
+		MCTSRoot = bestchild;
+		cout<<">>>BOTZONE_REQUEST_KEEP_RUNNING<<<\n";
 	}
 	
 }		
