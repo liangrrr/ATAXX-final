@@ -1,11 +1,12 @@
 #include <bits/stdc++.h>
+// #define _BOTZONE_ONLINE
 #include "jsoncpp/json.h"
 using namespace std;
 #define grid pair<bitset<49>, bitset<49> >
 // !    1 BLACK X second     -1 WHITE O first
 #define BLACK 1
 #define WHITE -1
-#define TIME_LIMIT 0.88
+#define TIME_LIMIT 1
 #define black_count(g) ((g).second.count())
 #define white_count(g) ((g).first.count())
 #define empty_spaces(g) (49-black_count(g)-white_count(g))
@@ -77,7 +78,6 @@ struct node
 		}
 	};
 	priority_queue <node*, vector<node *>, cmp> child_list;
-	vector <STEP> valid_moves;
 	int visited=0, win=0;
 
 	//node (grid _g, node *p):g(_g), parent(p){}
@@ -102,6 +102,8 @@ struct node
 	{
 		return child_list.top()->visited != 0;
 	}
+
+
 	bool find_valid_moves()
 	{
 		if(empty_spaces(g) == 0)return 0;
@@ -112,14 +114,24 @@ struct node
 			{
 				STEP st = STEP2I(i+delta[k][0], j+delta[k][1],i,j);
 				if(set_judge_valid(st,g,color) == 0)continue;
-				valid_moves.push_back(st);
+				node *temp = new node(this, st); bool flag = 1;
+
+				grid ng = temp->g;
+				if(black_count(ng)+white_count(ng)<(temp->depth>>2) + (temp->depth>>3))flag = 0;
+				if(flag && parent && parent->parent)
+				{
+					if(color == -1 && parent->parent->g.first == ng.first)flag = 0;
+					else if(parent->parent->g.second == ng.second)flag = 0;
+				}
+
+				if(flag)child_list.push(temp);
 				if(k<8)break;
 			}
 		}
-		return valid_moves.size()!=0;
+		return child_list.size()!=0;
 	}
-	void expand()
-	{
+	//void expand()
+	/*{
 		for(auto it = valid_moves.begin(); it!=valid_moves.end(); ++it)
 		{
 			node *temp = new node(this, *it);
@@ -132,7 +144,7 @@ struct node
 			}
 			child_list.push(temp);
 		}
-	}
+	}*/
 	int simulate()
 	{
 		node *choice = child_list.top();
@@ -141,7 +153,7 @@ struct node
 		if(depth == 400) return 0;
 		if(choice->visited)
 		{
-			if(choice -> valid_moves.size() == 0)
+			if(choice -> child_list.size() == 0)
 			{
 				choice->visited ++;
 				win++;
@@ -163,7 +175,7 @@ struct node
 		}
 		else
 		{
-			choice->expand();
+			//choice->expand();
 			int winner = choice->simulate() ;
 			if(winner == color) win++;
 			child_list.push(choice);
@@ -291,6 +303,7 @@ int main()
 		Json::Value input;
 		string str;
 		getline (cin,str);
+		//cout<<"woshishabi";
 		clock_t tik = clock();
 		reader.parse(str, input);
 		if(first_round)
@@ -349,10 +362,10 @@ int main()
 		{
 			MCTSRoot -> find_valid_moves();
 			#ifndef _BOTZONE_ONLINE
-			if(MCTSRoot->valid_moves.size() == 0)
+			if(MCTSRoot->child_list.size() == 0)
 				cerr<<"you died.\n";
 			#endif
-			MCTSRoot -> expand();
+			// MCTSRoot -> expand();
 		}
 
 		while(1)
@@ -363,6 +376,13 @@ int main()
 		}
 
 		node *bestchild = MCTSRoot->child_list.top();
+		MCTSRoot->child_list.pop();
+		while(!MCTSRoot->child_list.empty())
+		{
+			if(MCTSRoot->child_list.top()->visited>bestchild->visited)
+				bestchild = MCTSRoot->child_list.top();
+			MCTSRoot->child_list.pop();
+		}
 		if(bestchild->visited == 0)cerr<<"how can you do this?\n";
 		Json::Value ret;
 		ret["response"]["x0"] = GETX0(bestchild->comefrom);
