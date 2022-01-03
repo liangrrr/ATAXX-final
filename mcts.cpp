@@ -182,6 +182,15 @@ struct node
 			return winner;
 		}
 	}
+
+	~node()
+	{
+		while(!child_list.empty())
+		{
+			delete child_list.top();
+			child_list.pop();
+		}
+	}
 }
 *MCTSRoot;
 
@@ -350,6 +359,7 @@ int main()
 					MCTSRoot = temp;
 					break;
 				}
+				delete temp;
 				MCTSRoot->child_list.pop();
 			}
 			if(oldroot == MCTSRoot)
@@ -380,7 +390,11 @@ int main()
 		while(!MCTSRoot->child_list.empty())
 		{
 			if(MCTSRoot->child_list.top()->visited>bestchild->visited)
+			{
+				delete bestchild;
 				bestchild = MCTSRoot->child_list.top();
+			}
+			else delete MCTSRoot->child_list.top();
 			MCTSRoot->child_list.pop();
 		}
 		if(bestchild->visited == 0)cerr<<"how can you do this?\n";
@@ -392,6 +406,7 @@ int main()
 		Json::FastWriter writer;
 		cout << writer.write(ret) << endl;
 		MCTSRoot = bestchild;
+		print_grid(MCTSRoot->g);
 		cout<<">>>BOTZONE_REQUEST_KEEP_RUNNING<<<\n"<<flush;
 	}
 	
