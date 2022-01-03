@@ -48,15 +48,22 @@ inline int set_judge_valid(STEP & st, const grid & g, const int & color)
 	else SETTYPE(st,1);
 	return GETTYPE(st);
 }
-
+/* 
+ !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!1!!!!!!!!!
+ * 如果新被探索的子节点的grid和它的祖父的grid的落子方bitset一样，这是非法的
+ ? 路径上每一点visited 和 win 都不加？
+ * 前几手可以剪枝，去掉跳的节点.
+ TODO: 
+ */
 
 
 
 struct node
 {
 	node *parent=NULL;
-	grid g;int color;
+	grid g;int color,relscore;
 	STEP comefrom;
+	STEP depth;
 	struct cmp
 	{
 		bool operator ()(node *lhs, node *rhs)
@@ -64,7 +71,7 @@ struct node
 			double lu = lhs->uct(), ru = rhs->uct();
 			if(abs(lu-ru)<1e-3)
 			{
-				return lhs-> relscore() < rhs->relscore();
+				return lhs-> relscore < rhs->relscore;
 			}
 			return lu < ru;
 		}
@@ -74,16 +81,18 @@ struct node
 	int visited=0, win=0;
 
 	//node (grid _g, node *p):g(_g), parent(p){}
-	node (node *p, STEP s):g(p->g),color(-p->color),comefrom(s),parent(p)
+	node (node *p, STEP s):g(p->g),color(-p->color),comefrom(s),parent(p),depth(p->depth + 1)
 	{
 		proc_step_grid(g,s);
+		relscore = (black_count(g) - white_count(g))*(-color);
 	}
-	node (grid _g):g(_g),color(mycolor),comefrom(0){}
+	node (grid _g):g(_g),color(mycolor),comefrom(0),depth(0){}
 
-	inline int relscore() const
+	/*inline int relscore() const
 	{
 		return (black_count(g) - white_count(g))*color;
-	}
+	}*/
+
 	inline double uct() const
 	{
 		if (visited == 0)return 2147483647;
@@ -107,13 +116,21 @@ struct node
 				if(k<8)break;
 			}
 		}
-		return valid_moves.size()==0;
+		return valid_moves.size()!=0;
 	}
 	void expand()
 	{
 		for(auto it = valid_moves.begin(); it!=valid_moves.end(); ++it)
 		{
-			child_list.push(new node(this,*it));
+			node *temp = new node(this, *it);
+			grid ng = temp->g;
+			if(black_count(ng)+white_count(ng)<(temp->depth>>2) + (temp->depth>>3))continue;
+			if(parent && parent->parent)
+			{
+				if(color == -1 && parent->parent->g.first == ng.first)continue;
+				else if(parent->parent->g.second == ng.second)continue;
+			}
+			child_list.push(temp);
 		}
 	}
 	int simulate()
@@ -121,6 +138,7 @@ struct node
 		node *choice = child_list.top();
 		child_list.pop();
 		visited++;
+		if(depth == 400) return 0;
 		if(choice->visited)
 		{
 			if(choice -> valid_moves.size() == 0)
@@ -309,9 +327,8 @@ int main()
 			grid ng = MCTSRoot->g;
 			set_judge_valid(opps, ng , -mycolor);
 			proc_step_grid(ng,opps);
-			#ifndef _BOTZONE_ONLINE
+
 			node * oldroot = MCTSRoot;
-			#endif
 			while(!MCTSRoot->child_list.empty())
 			{
 				node * temp = MCTSRoot->child_list.top();
@@ -322,10 +339,11 @@ int main()
 				}
 				MCTSRoot->child_list.pop();
 			}
-			#ifndef _BOTZONE_ONLINE
 			if(oldroot == MCTSRoot)
-			cerr<<"slow like crawl ?\n";
-			#endif
+			{
+				//cerr<<"warning\n";
+				MCTSRoot = new node(oldroot, opps);
+			}
 		}
 		if(MCTSRoot->visited == 0)
 		{
@@ -354,7 +372,7 @@ int main()
 		Json::FastWriter writer;
 		cout << writer.write(ret) << endl;
 		MCTSRoot = bestchild;
-		cout<<">>>BOTZONE_REQUEST_KEEP_RUNNING<<<\n";
+		cout<<">>>BOTZONE_REQUEST_KEEP_RUNNING<<<\n"<<flush;
 	}
 	
 }		
