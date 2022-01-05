@@ -19,7 +19,7 @@ using namespace std;
 #define GETTYPE(i) (((i)&0x3000)>>12)
 #define STEP unsigned short
 
-int mycolor;
+int mycolor,MAXD;
 inline void grid_set(grid & g, int x, int y, int color);
 inline bool grid_delete (grid & g, int x, int y, int color);
 inline int grid_get (const grid & g, int x, int y);
@@ -41,7 +41,7 @@ inline int set_judge_valid(STEP & st, const grid & g, const int & color)
 	int x0 = GETX0(st), x1 = GETX1(st), y0 = GETY0(st), y1 = GETY1(st);
 	if((in_grid (x0,y0) && in_grid(x1,y1)) == 0)  return 0;
 	int dx = abs((x0 - x1)), dy = abs((y0 - y1));
-	if ((dx == 0 && dy == 0) || dx > 2 || dy > 2) // 保证不会移动到原来位置，而且移动始终在5×5区域内
+	if ((dx == 0 && dy == 0) || dx > 2 || dy > 2) 
 	return 0;
 	if(grid_get(g,x0,y0) != color) return 0;
 	if(grid_get(g,x1,y1) != 0) return 0;
@@ -49,14 +49,6 @@ inline int set_judge_valid(STEP & st, const grid & g, const int & color)
 	else SETTYPE(st,1);
 	return GETTYPE(st);
 }
-/* 
- !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!1!!!!!!!!!
- * 如果新被探索的子节点的grid和它的祖父的grid的落子方bitset一样，这是非法的
- ? 路径上每一点visited 和 win 都不加？
- * 前几手可以剪枝，去掉跳的节点.
- TODO: 
- */
-
 
 
 struct node
@@ -72,7 +64,7 @@ struct node
 			double lu = lhs->uct(), ru = rhs->uct();
 			if(abs(lu-ru)<1e-3)
 			{
-				return lhs-> relscore < rhs->relscore;
+				return lhs-> relscore > rhs->relscore;
 			}
 			return lu < ru;
 		}
@@ -84,7 +76,7 @@ struct node
 	node (node *p, STEP s):g(p->g),color(-p->color),comefrom(s),parent(p),depth(p->depth + 1)
 	{
 		proc_step_grid(g,s);
-		relscore = (black_count(g) - white_count(g))*(-color);
+		relscore = (black_count(g) - white_count(g))*color;
 	}
 	node (grid _g):g(_g),color(mycolor),comefrom(0),depth(0){}
 
@@ -96,7 +88,7 @@ struct node
 	inline double uct() const
 	{
 		if (visited == 0)return 2147483647;
-		return (double)(visited - win)/visited + sqrt( 2.0 * log2(parent->visited) / visited );
+		return (double)(visited - win)/visited + sqrt( 200.0 * log2(parent->visited) / visited );
 	}
 	inline bool fully_expanded()const
 	{
@@ -145,43 +137,43 @@ struct node
 			child_list.push(temp);
 		}
 	}*/
-	int simulate()
+	pair<int,int> simulate()
 	{
 		node *choice = child_list.top();
 		child_list.pop();
 		visited++;
-		if(depth == 400) return 0;
+		if(depth == MAXD) return make_pair(0,0);
 		if(win_theory)
 		{
-			win++;
-			return color;
+			win+= (MAXD-depth)*relscore;
+			return make_pair(color, (MAXD-depth)*relscore);
 		}
 		if(choice->visited)
 		{
 			if(choice -> child_list.size() == 0)
 			{
 				choice->visited ++;
-				win++;
+				win+= (MAXD-depth)*relscore;
 				child_list.push(choice);
-				return color;
+				return make_pair(color, (MAXD-depth)*relscore);
 			}
-			int winner = choice->simulate();
-			if(winner == color) win++;
+			pair<int,int> winner = choice->simulate();
+			if(winner.first == color) win+=winner.second;
 			child_list.push(choice);
 			return winner;
 		}
 		if(choice->find_valid_moves() == 0)
 		{
 			win_theory = choice->comefrom;
-			win++;
+			win+=(MAXD-depth)*relscore;
 			choice->visited ++;
-			return color;
+			return make_pair(color, (MAXD-depth)*relscore);
 		}
 		else
 		{
 			//choice->expand();
-			int winner = choice->simulate() ;
-			if(winner == color) win++;
+			pair<int,int> winner = choice->simulate() ;
+			if(winner.first == color) win+=winner.second;
 			child_list.push(choice);
 			return winner;
 		}
@@ -319,6 +311,7 @@ int main()
 	reader.parse(str, input);
 
 	int turnID = input["responses"].size();
+	MAXD = 50;
 	int x0,y0,x1,y1;
 	grid ng;
 	ng.second.flip(0);
