@@ -6,7 +6,7 @@ using namespace std;
 // !    1 BLACK X second     -1 WHITE O first
 #define BLACK 1
 #define WHITE -1
-#define TIME_LIMIT 0.95
+#define TIME_LIMIT 0.9
 #define black_count(g) ((g).second.count())
 #define white_count(g) ((g).first.count())
 #define empty_spaces(g) (49-black_count(g)-white_count(g))
@@ -62,6 +62,7 @@ inline int set_judge_valid(STEP & st, const grid & g, const int & color)
 struct node
 {
 	node *parent=NULL;
+	node *killmove = NULL;
 	grid g;int color,relscore;
 	STEP comefrom;
 	STEP depth;
@@ -77,6 +78,7 @@ struct node
 			return lu < ru;
 		}
 	};
+	
 	priority_queue <node*, vector<node *>, cmp> child_list;
 	int visited=0, win=0;
 
@@ -147,41 +149,46 @@ struct node
 	}*/
 	int simulate()
 	{
+		if(depth == 400) return 0;
+		if(killmove)
+		{
+			win += killmove->relscore + 2;
+			visited ++;
+			return -(killmove->relscore + 2);
+		}
+
 		node *choice = child_list.top();
 		child_list.pop();
 		visited++;
-		if(depth == 400) return 0;
+
 		if(choice->visited)
 		{
-			if(choice -> child_list.size() == 0)
-			{
-				choice->visited ++;
-				win++;
-				child_list.push(choice);
-				return color;
-			}
 			int winner = choice->simulate();
-			if(winner == color) win++;
+			win += winner;
 			child_list.push(choice);
-			return winner;
+			return -winner;
 		}
+
+		// !!!
 		if(choice->find_valid_moves() == 0)
 		{
 			#ifndef _BOTZONE_ONLINE
 			#endif
-			win++;
+			killmove = choice;
 			choice->visited ++;
-			return color;
+			win += choice->relscore + 2;
+			return -(choice->relscore + 2);
 		}
 		else
 		{
 			//choice->expand();
-			int winner = choice->simulate() ;
-			if(winner == color) win++;
-			child_list.push(choice);
-			return winner;
+			choice->visited++;
+			choice->win += choice->relscore;
+			win += choice->relscore;
+			return choice->relscore;
 		}
 	}
+
 
 	~node()
 	{
@@ -362,14 +369,23 @@ int main()
 	//print_grid(ng);
 	MCTSRoot = new node(ng);
 	MCTSRoot->find_valid_moves();
+	node *bestchild;
 	while(1)
 	{
 		MCTSRoot->simulate();
+		//cout<<'+';
+		/*if(MCTSRoot->killmove)
+		{
+			bestchild = MCTSRoot->killmove;
+			goto out;
+		}*/
 		clock_t tok = clock();
 		if((double)(tok-tik) / CLOCKS_PER_SEC > TIME_LIMIT)break;
 	}
 
-		node *bestchild = MCTSRoot->child_list.top();
+	if(MCTSRoot->killmove)bestchild = MCTSRoot->killmove;
+	else{
+		bestchild = MCTSRoot->child_list.top();
 		MCTSRoot->child_list.pop();
 		while(!MCTSRoot->child_list.empty())
 		{
@@ -382,6 +398,9 @@ int main()
 			MCTSRoot->child_list.pop();
 		}
 		//if(bestchild->visited == 0)cerr<<"how can you do this?\n";
+		//out:
+
+	}
 		Json::Value ret;
 		ret["response"]["x0"] = GETX0(bestchild->comefrom);
 		ret["response"]["y0"] = GETY0(bestchild->comefrom);
