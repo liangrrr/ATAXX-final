@@ -78,7 +78,7 @@ struct node
 		}
 	};
 	priority_queue <node*, vector<node *>, cmp> child_list;
-	int visited=0, win=0;
+	int visited=0; double win=0;
 
 	//node (grid _g, node *p):g(_g), parent(p){}
 	node (node *p, STEP s):g(p->g),color(-p->color),comefrom(s),parent(p),depth(p->depth + 1)
