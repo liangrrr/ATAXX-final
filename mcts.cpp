@@ -18,7 +18,8 @@
 #define GETTYPE(i) (((i)&0x3000)>>12)
 #define STEP unsigned short
 
-int mycolor,MAXD;
+int mycolor;
+#define MAXD 30
 inline void grid_set(grid & g, int x, int y, int color);
 inline bool grid_delete (grid & g, int x, int y, int color);
 inline int grid_get (const grid & g, int x, int y);
@@ -50,6 +51,7 @@ inline int set_judge_valid(STEP & st, const grid & g, const int & color)
 }
 
 
+
 struct node
 {
 	node *parent=NULL;
@@ -77,7 +79,10 @@ struct node
 		proc_step_grid(g,s);
 		relscore = (black_count(g) - white_count(g))*color;
 	}
-	node (grid _g):g(_g),color(mycolor),comefrom(0),depth(0){}
+	node (grid _g, int _c):g(_g),color(_c),comefrom(0),depth(0)
+	{
+		relscore = (black_count(g) - white_count(g))*color;
+	}
 
 	/*inline int relscore() const
 	{
@@ -189,6 +194,14 @@ struct node
 }
 *MCTSRoot;
 
+int wr_find_valid(int grid0, int grid1, int color)
+{
+	grid g = make_pair( bitset<49>(grid0), bitset<49>(grid1));
+	node *rt = new node(g, color);
+	if(!rt->find_valid_moves()) return ( rt->relscore > 0 ? color : -color );
+	else return 0;
+}
+
 
 inline int grid_get (const grid & g, int x, int y)
 {
@@ -298,15 +311,17 @@ inline void proc_step_grid(grid & g, const STEP & st)
 }*/
 
 
-string mcts(string str)
+int mcts(unsigned long long grid0, unsigned long long grid1, int color)
 {	
-	bool first_round = 1;
+	/*bool first_round = 1;
 	Json::Reader reader;
 	Json::Value input;
-	//cout<<"woshishabi";
+	//cout<<"woshishabi";*/
 	clock_t tik = clock();
-	reader.parse(str, input);
+	mycolor = color;
+	//reader.parse(str, input);
 
+/*
 	int turnID = input["responses"].size();
 	MAXD = 35;
 	int x0,y0,x1,y1;
@@ -353,8 +368,9 @@ string mcts(string str)
 			proc_step_grid(ng,s);
 		} 
 
-	//print_grid(ng);
-	MCTSRoot = new node(ng);
+*/
+	grid ng = make_pair(bitset<49>(grid0),bitset<49>(grid1));
+	MCTSRoot = new node(ng, mycolor);
 	MCTSRoot->find_valid_moves();
 	while(1)
 	{
@@ -362,14 +378,14 @@ string mcts(string str)
 		clock_t tok = clock();
 		if(MCTSRoot->win_theory)
 		{
-			Json::Value ret;
-			ret["response"]["x0"] = GETX0(MCTSRoot->win_theory);
+			//Json::Value ret;
+			/*ret["response"]["x0"] = GETX0(MCTSRoot->win_theory);
 			ret["response"]["y0"] = GETY0(MCTSRoot->win_theory);
 			ret["response"]["x1"] = GETX1(MCTSRoot->win_theory);
 			ret["response"]["y1"] = GETY1(MCTSRoot->win_theory);
 			Json::FastWriter writer;
-			cout << writer.write(ret) << endl;
-			return 0;
+			cout << writer.write(ret) << endl;*/
+			return MCTSRoot->win_theory;
 		}
 		if((double)(tok-tik) / CLOCKS_PER_SEC > TIME_LIMIT)break;
 	}
@@ -388,7 +404,7 @@ string mcts(string str)
 			//else delete MCTSRoot->child_list.top();
 			MCTSRoot->child_list.pop();
 		}
-		//if(bestchild->visited == 0)cerr<<"how can you do this?\n";
+		/*//if(bestchild->visited == 0)cerr<<"how can you do this?\n";
 		Json::Value ret;
 		ret["response"]["x0"] = GETX0(bestchild->comefrom);
 		ret["response"]["y0"] = GETY0(bestchild->comefrom);
@@ -402,5 +418,7 @@ string mcts(string str)
 		//oss << writer.write(ret) << endl;
 		//MCTSRoot = bestchild;
 		return ret.toStyledString();
-		//print_grid(MCTSRoot->g);
+		//print_grid(MCTSRoot->g);*/
+
+		return bestchild->comefrom;
 }		

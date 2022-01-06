@@ -1,5 +1,9 @@
 from ctypes import *
+import ctypes
 import json
+import tkinter as tk
+from core import game
+
 dll = WinDLL(".\mcts.dll")
-s = input()
+
 print(dll.mcts(s)) 
