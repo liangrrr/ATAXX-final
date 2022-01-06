@@ -88,7 +88,7 @@ struct node
 	inline double uct() const
 	{
 		if (visited == 0)return 2147483647;
-		return (double)(visited - win)/visited + sqrt( 200.0 * log2(parent->visited) / visited );
+		return (double)(-win)/visited + sqrt( 400.0 * log2(parent->visited) / visited ) - 0.75 * relscore - GETTYPE(comefrom);
 	}
 	inline bool fully_expanded()const
 	{
@@ -311,7 +311,7 @@ int main()
 	reader.parse(str, input);
 
 	int turnID = input["responses"].size();
-	MAXD = 50;
+	MAXD = 35;
 	int x0,y0,x1,y1;
 	grid ng;
 	ng.second.flip(0);
