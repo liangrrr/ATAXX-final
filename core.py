@@ -23,6 +23,7 @@ class game:
 	riv_color = 0
 	js = {}
 	terminated = False
+	dll = ctypes.WinDLL('mcts.dll')
 
 	def __init__(self) -> None:
 		self.grid = np.zeros((7,7))
@@ -40,7 +41,12 @@ class game:
 		if human == -1:
 			self.js['requests'].append({"x0": -1, "x1": -1, "y0": -1, "y1": -1})
 		else: self.wait_for_human()
-	
+
+	def bot_decision(self):
+		g0, g1 = self.throw_to_c()
+		st = self.dll.mcts(g0,g1,self.bot_color)
+		x0,y0,x1,y1 = step_conv(st)
+		self.proceed(self.bot_color, x0,y0,x1,y1)
 
 
 	# scores: return black score, white score
@@ -76,6 +82,10 @@ class game:
 			for de in delta[:8]:
 				if self.ingrid (newx + de[0], newy + de[1]) and self.grid[newx + de[0]][newy + de[1]] != 0 :
 					self.grid[newx + de[0]][newy + de[1]] = color
+			
+			if color == self.bot_color:
+				self.js['responses'].append({'x0':origx, 'y0':origy, 'x1':newx, 'y1':newy})
+
 			return True
 		else : return False
 
@@ -109,9 +119,9 @@ class game:
 		exp = 1
 		for i in range(7):
 			for j in range(7):
-				exp<<=1
 				if self.grid[i][j] == -1: white += exp
 				elif self.grid[i][j] == 1: black += exp
+				exp <<= 1
 		return white, black
 
 	def save(self):
