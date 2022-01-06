@@ -1,7 +1,6 @@
-#include <bits/stdc++.h>
+#include "mcts-short.hpp"
 // #define _BOTZONE_ONLINE
 #include "jsoncpp/json.h"
-using namespace std;
 #define grid pair<bitset<49>, bitset<49> >
 // !    1 BLACK X second     -1 WHITE O first
 #define BLACK 1
@@ -299,13 +298,11 @@ inline void proc_step_grid(grid & g, const STEP & st)
 }*/
 
 
-int main()
+string mcts(string str)
 {	
 	bool first_round = 1;
 	Json::Reader reader;
 	Json::Value input;
-	string str;
-	getline (cin,str);
 	//cout<<"woshishabi";
 	clock_t tik = clock();
 	reader.parse(str, input);
@@ -397,8 +394,13 @@ int main()
 		ret["response"]["y0"] = GETY0(bestchild->comefrom);
 		ret["response"]["x1"] = GETX1(bestchild->comefrom);
 		ret["response"]["y1"] = GETY1(bestchild->comefrom);
-		Json::FastWriter writer;
-		cout << writer.write(ret) << endl;
-		MCTSRoot = bestchild;
+		//Json::FastWriter writer;
+		//ostringstream oss;
+		//string out;
+		//oss.str(out);
+		//ret.asString();
+		//oss << writer.write(ret) << endl;
+		//MCTSRoot = bestchild;
+		return ret.toStyledString();
 		//print_grid(MCTSRoot->g);
 }		
