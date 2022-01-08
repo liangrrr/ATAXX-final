@@ -23,7 +23,6 @@ class game:
 	riv_color = 0
 	js = {}
 	terminated = False
-	dll = ctypes.WinDLL('mcts.dll')
 
 	def __init__(self) -> None:
 		self.grid = np.zeros((7,7))
@@ -40,14 +39,19 @@ class game:
 		self.bot_color = -human
 		if human == -1:
 			self.js['requests'].append({"x0": -1, "x1": -1, "y0": -1, "y1": -1})
+			self.bot_decision()
 		else: self.wait_for_human()
 
 	def bot_decision(self):
+		dll = ctypes.WinDLL('mcts.dll')
 		g0, g1 = self.throw_to_c()
-		st = self.dll.mcts(g0,g1,self.bot_color)
+		g0 = ctypes.c_ulonglong(g0)
+		g1 = ctypes.c_ulonglong(g1)
+		st = dll.mcts(g0,g1,self.bot_color)
 		x0,y0,x1,y1 = step_conv(st)
 		self.proceed(self.bot_color, x0,y0,x1,y1)
-
+		self.js['responses'].append({'x0':x0, 'y0':y0, 'x1':x1, 'y1':y1})
+	
 
 	# scores: return black score, white score
 	def scores(self) :
@@ -58,13 +62,14 @@ class game:
 	def ingrid(self,x,y) -> bool:
 		return x in range(0,7) and y in range(0,7)
 
-	def dead(self,color) -> int:
+	def dead(self, color) -> int:
 		for i in range(7):
 			for j in range(7):
-				if self.grid[i][j] == color :
+				if self.grid[i][j] == color:
 					for dx,dy in delta:
 						if self.ingrid(i+dx,j+dy) and self.grid[i+dx][j+dy] == 0 :
 							return False
+		self.terminated = True
 		return True
 
 	def proceed_check(self, color, origx, origy, newx, newy) -> bool:
@@ -77,20 +82,22 @@ class game:
 	def proceed(self, color, origx, origy, newx, newy):
 		if self.proceed_check(color, origx, origy, newx, newy):
 			self.grid[newx][newy] = color
-			if abs(origx - newx) > 1 and abs(origy - newy) > 1:
+			if abs(origx - newx) > 1 or abs(origy - newy) > 1:
 				self.grid[origx][origy] = 0
 			for de in delta[:8]:
 				if self.ingrid (newx + de[0], newy + de[1]) and self.grid[newx + de[0]][newy + de[1]] != 0 :
 					self.grid[newx + de[0]][newy + de[1]] = color
-			
-			if color == self.bot_color:
-				self.js['responses'].append({'x0':origx, 'y0':origy, 'x1':newx, 'y1':newy})
-
 			return True
-		else : return False
+		else : 
+			print('pcheck err')
+			return False
 
 	def replay(self, history) -> None:
-		history = json.loads(history)
+		if self.bot_color != 0:
+			print ("init error.")
+			return
+
+		self.js = history
 		if history["requests"][0]["x0"] < 0:
 			self.bot_color = 1
 			self.riv_color = -1
@@ -112,6 +119,7 @@ class game:
 			reql = history["requests"][turns]
 			if reql["x0"]>=0:
 				self.proceed(self.riv_color, reql["x0"], reql["y0"], reql["x1"], reql["y1"])
+
 	
 	def throw_to_c(self) :
 		white = 0
@@ -126,29 +134,35 @@ class game:
 
 	def save(self):
 		localtime = time.asctime( time.localtime(time.time()) )
-		nf = open(localtime, mode = 'x')
+		dir = localtime.replace(':','-') + '.json'
+		nf = open('save\\' + dir, mode = 'x')
 		json.dump(self.js, nf)
 		nf.close()	
+		return dir
 
 	def load(self, dir:str) :
 		nf = open(dir, mode = 'r')
 		g = game()
 		g.replay(json.load(nf))
-		self = g
+		return g
 
-	def withdraw(self) -> bool:
-		humansz = self.js['requests'].size()
-		botsz = self.js['responses'].size()
+	def withdraw(self) :
+		humansz = len(self.js['requests'])
+		botsz = len(self.js['responses'])
 		if humansz > 0 and self.js["requests"][humansz - 1]['x0'] >= 0:
 			self.js['requests'].pop()
 		else : return False
+
+		if len(self.js['requests']) == 0:
+			g = game()
+			g.init_game_man(1)
+			return g
 
 		if botsz > 0 and self.js['responses'][botsz - 1]['x0'] >= 0:
 			self.js['responses'].pop()
 		g = game()
 		g.replay(self.js)
-		self = g
-		return True
+		return g
 
 	def dbg_print(self):
 		for i in range(7):
@@ -157,3 +171,4 @@ class game:
 				elif self.grid[i][j]==-1: print('O', end='')
 				else: print(' ',end='')
 			print('')
+

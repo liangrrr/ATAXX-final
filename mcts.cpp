@@ -1,4 +1,4 @@
-#include "mcts-short.hpp"
+#include "mcts.hpp"
 // #define _BOTZONE_ONLINE
 #include "jsoncpp/json.h"
 #define grid pair<bitset<49>, bitset<49> >
@@ -194,7 +194,7 @@ struct node
 }
 *MCTSRoot;
 
-int wr_find_valid(int grid0, int grid1, int color)
+int wr_find_valid(unsigned long long grid0, unsigned long long grid1, int color)
 {
 	grid g = make_pair( bitset<49>(grid0), bitset<49>(grid1));
 	node *rt = new node(g, color);

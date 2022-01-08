@@ -1,9 +1,7 @@
 #include <bits/stdc++.h>
 using namespace std;
-extern "C" __declspec(dllimport) string mcts(string str);
-int main()
+extern "C" __declspec(dllexport) int f(long long ll);
+int f(long long ll)
 {
-	string s;
-	cin>>s;
-	cout<<mcts(s);
+	cout<<ll;
 }
