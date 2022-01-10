@@ -349,7 +349,9 @@ Json::Value mcts(Json::Value input)
 			ret["response"]["y0"] = GETY0(MCTSRoot->win_theory);
 			ret["response"]["x1"] = GETX1(MCTSRoot->win_theory);
 			ret["response"]["y1"] = GETY1(MCTSRoot->win_theory);
-			return ret;
+			Json::FastWriter writer;
+			cout<<writer.write(ret)<<endl;
+			return 0;
 		}
 		if((double)(tok-tik) / CLOCKS_PER_SEC > TIME_LIMIT)break;
 	}
@@ -374,13 +376,13 @@ Json::Value mcts(Json::Value input)
 		ret["response"]["y0"] = GETY0(bestchild->comefrom);
 		ret["response"]["x1"] = GETX1(bestchild->comefrom);
 		ret["response"]["y1"] = GETY1(bestchild->comefrom);
-		//Json::FastWriter writer;
+		Json::FastWriter writer;
 		//ostringstream oss;
 		//string out;
 		//oss.str(out);
 		//ret.asString();
-		//oss << writer.write(ret) << endl;
+		cout << writer.write(ret) << endl;
 		//MCTSRoot = bestchild;
-		return ret;
+		//return ret;
 		//print_grid(MCTSRoot->g);
 }		
